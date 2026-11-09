@@ -78,10 +78,12 @@ export function FormulaField() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const draw = canvas.getContext("2d");
-    if (!draw) return;
+    const element = canvasRef.current;
+    if (!element) return;
+    const context = element.getContext("2d");
+    if (!context) return;
+    const canvas = element;
+    const draw = context;
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     let width = 0;
     let height = 0;
