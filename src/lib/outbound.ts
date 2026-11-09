@@ -58,33 +58,31 @@ function proxied(input: string, init: { method?: string; headers?: HeadersInit; 
       new Headers(init.headers).forEach((value, key) => {
         headers[key] = value;
       });
-      const request = https.request(
-        {
-          host: target.hostname,
-          servername: target.hostname,
-          path: `${target.pathname}${target.search}`,
-          method: init.method ?? "GET",
-          headers,
-          socket,
-          agent: false,
-        },
-        (upstream) => {
-          const stream = new ReadableStream<Uint8Array>({
-            start(controller) {
-              upstream.on("data", (chunk: Buffer) => controller.enqueue(new Uint8Array(chunk)));
-              upstream.on("end", () => controller.close());
-              upstream.on("error", (error) => controller.error(error));
-            },
-            cancel() {
-              upstream.destroy();
-            },
-          });
-          const responseHeaders = new Headers();
-          const type = upstream.headers["content-type"];
-          if (typeof type === "string") responseHeaders.set("content-type", type);
-          resolve(new Response(stream, { status: upstream.statusCode ?? 502, headers: responseHeaders }));
-        },
-      );
+      const options: https.RequestOptions & { socket: typeof socket } = {
+        host: target.hostname,
+        servername: target.hostname,
+        path: `${target.pathname}${target.search}`,
+        method: init.method ?? "GET",
+        headers,
+        socket,
+        agent: false,
+      };
+      const request = https.request(options, (upstream) => {
+        const stream = new ReadableStream<Uint8Array>({
+          start(controller) {
+            upstream.on("data", (chunk: Buffer) => controller.enqueue(new Uint8Array(chunk)));
+            upstream.on("end", () => controller.close());
+            upstream.on("error", (error) => controller.error(error));
+          },
+          cancel() {
+            upstream.destroy();
+          },
+        });
+        const responseHeaders = new Headers();
+        const type = upstream.headers["content-type"];
+        if (typeof type === "string") responseHeaders.set("content-type", type);
+        resolve(new Response(stream, { status: upstream.statusCode ?? 502, headers: responseHeaders }));
+      });
       request.once("error", reject);
       if (init.body) request.write(init.body);
       request.end();

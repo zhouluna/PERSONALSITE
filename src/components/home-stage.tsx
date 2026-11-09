@@ -9,8 +9,9 @@ export function HomeStage() {
   const stageRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
-    const stage = stageRef.current;
-    if (!stage) return;
+    const element = stageRef.current;
+    if (!element) return;
+    const stage = element;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     function onMove(event: PointerEvent) {
       const rect = stage.getBoundingClientRect();
