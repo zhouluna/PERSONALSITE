@@ -325,6 +325,32 @@ body {
   line-height: 1.45;
 }
 
+.panel h3 {
+  margin: 16px 0 0;
+  color: #6f675f;
+  font-family: Palatino, "Palatino Linotype", Georgia, serif;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.tool-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.tool-row a {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.tool-row button {
+  flex-shrink: 0;
+}
+
 .panel input,
 .panel textarea,
 .panel select,
