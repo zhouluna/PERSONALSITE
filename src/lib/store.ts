@@ -1,6 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import catalogJson from "./tools-catalog.json" with { type: "json" };
+import type { ToolItem } from "./tool-groups";
+
+export type { ToolItem } from "./tool-groups";
 
 export type Profile = {
   name: string;
@@ -27,14 +31,6 @@ export type LearningItem = {
   note: string;
 };
 
-export type ToolItem = {
-  id: string;
-  name: string;
-  url: string;
-  summary: string;
-  tag: string;
-};
-
 export type XSave = {
   id: string;
   title: string;
@@ -49,10 +45,58 @@ export type Store = {
   learning: LearningItem[];
   tools: ToolItem[];
   xSaves: XSave[];
+  toolsCustomized?: boolean;
 };
 
+export type WriteResult = { ok: true } | { ok: false; reason: "read-only" | "failed" };
+
 const dataDir = path.join(process.cwd(), "data");
-const storeFile = path.join(dataDir, "store.json");
+const storeFileName = "store.json";
+
+const learningSeed: LearningItem[] = [
+  {
+    id: "seed-learning-sap",
+    kind: "site",
+    category: "SAP",
+    title: "SAP Learning",
+    url: "https://learning.sap.com",
+    note: "官方学习站",
+  },
+  {
+    id: "seed-learning-abap-docs",
+    kind: "site",
+    category: "ABAP",
+    title: "ABAP Keyword Documentation",
+    url: "https://help.sap.com/doc/abapdocu_latest_index_htm/latest/en-US/index.htm",
+    note: "语法和语句",
+  },
+  {
+    id: "seed-learning-clean-abap",
+    kind: "book",
+    category: "ABAP",
+    title: "Clean ABAP",
+    url: "https://github.com/SAP/styleguides/blob/main/clean-abap/CleanABAP.md",
+    note: "风格指南，可当书读",
+  },
+];
+
+function normalizeTool(item: unknown): ToolItem {
+  const source = typeof item === "object" && item !== null ? (item as Partial<ToolItem>) : {};
+  const tag = typeof source.tag === "string" ? source.tag.trim() : "";
+  const section = typeof source.section === "string" ? source.section.trim() : "";
+  return {
+    id: typeof source.id === "string" ? source.id : "",
+    name: typeof source.name === "string" ? source.name : "",
+    url: typeof source.url === "string" ? source.url : "",
+    summary: typeof source.summary === "string" ? source.summary : "",
+    tag: tag || "其他",
+    section: section || "其他",
+  };
+}
+
+function committedTools(): ToolItem[] {
+  return catalogJson.map((item) => normalizeTool(item));
+}
 
 function seed(): Store {
   return {
@@ -64,81 +108,75 @@ function seed(): Store {
       avatarUrl: "",
     },
     notes: [],
-    learning: [
-      {
-        id: randomUUID(),
-        kind: "site",
-        category: "SAP",
-        title: "SAP Learning",
-        url: "https://learning.sap.com",
-        note: "官方学习站",
-      },
-      {
-        id: randomUUID(),
-        kind: "site",
-        category: "ABAP",
-        title: "ABAP Keyword Documentation",
-        url: "https://help.sap.com/doc/abapdocu_latest_index_htm/latest/en-US/index.htm",
-        note: "语法和语句",
-      },
-      {
-        id: randomUUID(),
-        kind: "book",
-        category: "ABAP",
-        title: "Clean ABAP",
-        url: "https://github.com/SAP/styleguides/blob/main/clean-abap/CleanABAP.md",
-        note: "风格指南，可当书读",
-      },
-    ],
-    tools: [
-      {
-        id: randomUUID(),
-        name: "端点台",
-        url: "https://endpoint-desk-luna.vercel.app/chat",
-        summary: "免费模型目录和多模型聊天。猫和兔子用这里的模型。",
-        tag: "AI",
-      },
-      {
-        id: randomUUID(),
-        name: "Astryx",
-        url: "https://astryx.atmeta.com",
-        summary: "这套页面用的设计系统。",
-        tag: "前端",
-      },
-      {
-        id: randomUUID(),
-        name: "SAP Help",
-        url: "https://help.sap.com",
-        summary: "产品文档入口。",
-        tag: "SAP",
-      },
-      {
-        id: randomUUID(),
-        name: "NVIDIA API keys",
-        url: "https://build.nvidia.com/settings",
-        summary: "聊天用的 nvapi Key 在这里生成。",
-        tag: "AI",
-      },
-    ],
+    learning: learningSeed.map((item) => ({ ...item })),
+    tools: committedTools(),
     xSaves: [],
+    toolsCustomized: false,
   };
 }
 
-export function readStore(): Store {
-  mkdirSync(dataDir, { recursive: true });
+function mergeStore(parsed: Partial<Store>): Store {
+  const base = seed();
+  const customTools = parsed.toolsCustomized === true && Array.isArray(parsed.tools) ? parsed.tools : null;
+  return {
+    profile: { ...base.profile, ...parsed.profile },
+    notes: Array.isArray(parsed.notes) ? parsed.notes : base.notes,
+    learning: Array.isArray(parsed.learning) ? parsed.learning : base.learning,
+    tools: customTools ? customTools.map((item) => normalizeTool(item)) : base.tools,
+    xSaves: Array.isArray(parsed.xSaves) ? parsed.xSaves : base.xSaves,
+    toolsCustomized: customTools !== null,
+  };
+}
+
+// data/ is gitignored. On Vercel the function root is /var/task, and mkdir
+// of /var/task/data throws ENOENT. Reading must not create that directory.
+export function readStoreAt(dir: string): Store {
   try {
-    const parsed = JSON.parse(readFileSync(storeFile, "utf8")) as Store;
-    return { ...seed(), ...parsed, profile: { ...seed().profile, ...parsed.profile } };
+    const parsed = JSON.parse(readFileSync(path.join(dir, storeFileName), "utf8")) as Partial<Store>;
+    return mergeStore(parsed);
   } catch {
-    const initial = seed();
-    writeStore(initial);
-    return initial;
+    return seed();
   }
 }
 
+export function readStore(): Store {
+  return readStoreAt(dataDir);
+}
+
+function writeFailure(error: unknown): WriteResult {
+  const code = typeof error === "object" && error !== null && "code" in error ? String(error.code) : "";
+  if (
+    code === "ENOENT" ||
+    code === "EACCES" ||
+    code === "EPERM" ||
+    code === "EROFS" ||
+    code === "ENOTDIR" ||
+    code === "EISDIR"
+  ) {
+    return { ok: false, reason: "read-only" };
+  }
+  return { ok: false, reason: "failed" };
+}
+
+export function tryWriteStoreAt(dir: string, store: Store): WriteResult {
+  try {
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(path.join(dir, storeFileName), JSON.stringify(store, null, 2), "utf8");
+    return { ok: true };
+  } catch (error) {
+    return writeFailure(error);
+  }
+}
+
+export function tryWriteStore(store: Store): WriteResult {
+  return tryWriteStoreAt(dataDir, store);
+}
+
 export function writeStore(store: Store): void {
-  mkdirSync(dataDir, { recursive: true });
-  writeFileSync(storeFile, JSON.stringify(store, null, 2), "utf8");
+  const result = tryWriteStore(store);
+  if (!result.ok) {
+    throw new Error(result.reason === "read-only" ? "Store directory is read-only." : "Could not write store.");
+  }
 }
 
 export function newId(): string {
