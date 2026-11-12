@@ -16,6 +16,8 @@ export function SiteShell({ children }: { children: ReactNode }) {
         <nav>
           <Link href="/">LUNA BYTEBUN</Link>
           <Link href="/news">News</Link>
+          <Link href="/youtube">YouTube</Link>
+          <Link href="/bilibili">Bilibili</Link>
           <Link href="/personal">Personal</Link>
           <Link href="/tools">Tools</Link>
         </nav>

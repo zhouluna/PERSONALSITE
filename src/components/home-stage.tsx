@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef } from "react";
 import { FormulaField } from "@/components/formula-field";
 import { useDesk } from "@/components/desk-context";
@@ -26,6 +27,11 @@ export function HomeStage() {
 
   return (
     <main className="stage" ref={stageRef}>
+      <nav className="home-links" aria-label="站内入口">
+        <Link href="/news">News</Link>
+        <Link href="/youtube">YouTube 推荐</Link>
+        <Link href="/bilibili">Bilibili 推荐</Link>
+      </nav>
       <FormulaField />
       <button type="button" className="shape-hit shape-hit-cat" aria-label="和机器猫聊天" onClick={() => desk.openChat("cat")} />
       <button type="button" className="shape-hit shape-hit-rabbit" aria-label="和机器兔聊天" onClick={() => desk.openChat("rabbit")} />
